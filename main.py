@@ -8,14 +8,9 @@ class Classify(torch.nn.Module):
         self.embedding = torch.nn.Embedding(features, hidden_dim)
         self.linear = torch.nn.Linear(hidden_dim, 4)
         self.softmax = torch.nn.Softmax(dim=1)
-        self.unet = Unet(1000, 128, in_channels=1, out_channels=1)
 
     def forward(self, x_0: torch.Tensor) -> torch.Tensor:
-        x_0 = x_0.unsqueeze(dim=1)
-        print(x_0.shape)
-        x_0 = self.unet(x_0.float())
-        x_0 = x_0.squeeze(dim=1)
-        x_0 = self.embedding(x_0.long())
+        x_0 = self.embedding(x_0)
         x_0 = self.linear(x_0)
         x_0 = x_0.argmax(dim=1)
         x_0 = x_0.argmax(dim=1)
