@@ -172,7 +172,9 @@ class DecoderBlock(nn.Module):
         x_shortcut: torch.Tensor,
         t: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
+        print("before upsample: ", x.shape, x_shortcut.shape)
         x = self.upsample(x)
+        print(x.shape, x_shortcut.shape)
         x = torch.cat([x, x_shortcut], dim=1)
         x = self.conv0(x)
         if t is not None:
@@ -202,6 +204,7 @@ class Unet(nn.Module):
 
         channels = self._cal_channels(base_dim, dim_mults)
 
+        # it is used to make channels become base_dim
         self.init_conv = ConvBnSiLu(in_channels, base_dim, 3, 1, 1)
         self.time_embedding = nn.Embedding(timesteps, time_embedding_dim)
 
@@ -225,6 +228,7 @@ class Unet(nn.Module):
         self, x: torch.Tensor, time_stamp: Optional[torch.Tensor] = None
     ) -> torch.Tensor:
         x = self.init_conv(x)
+        print(f"shape of x: {x.shape}")
         if time_stamp is not None:
             time_stamp = self.time_embedding(time_stamp)
         encoder_shortcuts: List[nn.Module] = []
@@ -252,8 +256,8 @@ class Unet(nn.Module):
 
 
 if __name__ == "__main__":
-    x = torch.randn(3, 1, 224, 224)
+    x = torch.randint(0, 100, (3, 1, 256, 224))
     t = torch.randint(0, 1000, (3,))
     model: Unet = Unet(1000, 128, in_channels=1, out_channels=1)
-    y = model(x, t)
+    y = model(x.float(), t)
     print(y.shape)
