@@ -172,9 +172,7 @@ class DecoderBlock(nn.Module):
         x_shortcut: torch.Tensor,
         t: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
-        print("before upsample: ", x.shape, x_shortcut.shape)
         x = self.upsample(x)
-        print(x.shape, x_shortcut.shape)
         x = torch.cat([x, x_shortcut], dim=1)
         x = self.conv0(x)
         if t is not None:
@@ -228,7 +226,6 @@ class Unet(nn.Module):
         self, x: torch.Tensor, time_stamp: Optional[torch.Tensor] = None
     ) -> torch.Tensor:
         x = self.init_conv(x)
-        print(f"shape of x: {x.shape}")
         if time_stamp is not None:
             time_stamp = self.time_embedding(time_stamp)
         encoder_shortcuts: List[nn.Module] = []
