@@ -39,6 +39,7 @@ class Classify(torch.nn.Module):
 
 
 if __name__ == "__main__":
+    # what need to take care about is the length of the time. It should always be consisted with n_mels
     x = torch.rand(3, 1, 80, 224).cuda()
 
     model = Classify(80, 4).cuda()
