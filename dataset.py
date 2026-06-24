@@ -20,7 +20,7 @@ class EmoDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, index: int) -> torch.Tensor:
         # wav_file = self.emodb[0][index]
-        emo = self.emodb[2][index]
+        emo: str = self.emodb[2][index]
         emo_data: torch.Tensor
         match emo:
             case "Surprise":
@@ -34,6 +34,7 @@ class EmoDataset(torch.utils.data.Dataset):
             case _:
                 emo_data = torch.tensor([1, 0, 0, 0, 0])
         return emo_data
+
 
 if __name__ == "__main__":
     dataset = EmoDataset(_db, 80)
