@@ -109,13 +109,15 @@ class EmoBatchCollate(object):
         batch_len = len(batch)
         mel_max_len = max(data[1].shape[-1] for data in batch)
 
-        emo_data = torch.zeros((batch_len, self.emo_features), dtype=torch.long)
-        mel_data = torch.zeros((batch_len, self.n_mels, mel_max_len), dtype=torch.float32)
         for _ in range(self.min_div):
             if mel_max_len % self.min_div == 0:
                 break
             mel_max_len += 1
         assert mel_max_len % self.min_div == 0
+        emo_data = torch.zeros((batch_len, self.emo_features), dtype=torch.long)
+        mel_data = torch.zeros(
+            (batch_len, self.n_mels, mel_max_len), dtype=torch.float32
+        )
 
         for i, item in enumerate(batch):
             emo, mel = item
