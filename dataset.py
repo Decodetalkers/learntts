@@ -3,7 +3,7 @@ import pandas as pd
 from pathlib import Path
 import torchaudio
 from utils import mel_spectrogram
-from typing import Tuple
+from typing import Tuple, List
 
 _THIS_DIR = Path(__file__).parent.resolve()
 _DATA_DIR = _THIS_DIR / "EmoSpeech-0020"
@@ -30,13 +30,12 @@ class EmoDataset(torch.utils.data.Dataset):
         data: pd.DataFrame,
         n_fft: int = 1024,
         n_mels: int = 80,
-        sample_rate: int = 22050,
+        sample_rate: int = 16000,
         hop_length: int = 256,
         win_length: int = 1024,
         f_min: float = 0.0,
         f_max: int = 8000,
     ):
-        assert max_2_div(n_fft) >= max_2_div(n_mels)
         self.emodb = data
         self.n_mels = n_mels
         self.n_fft = n_fft
@@ -45,6 +44,19 @@ class EmoDataset(torch.utils.data.Dataset):
         self.win_length = win_length
         self.f_min = f_min
         self.f_max = f_max
+        self.mel_div = max_2_div(n_mels)
+
+    @property
+    def min_div(self) -> int:
+        return self.mel_div
+
+    @property
+    def mels_count(self) -> int:
+        return self.n_mels
+
+    @property
+    def emo_features(self) -> int:
+        return 5
 
     def __len__(self) -> int:
         return self.emodb.shape[0]
@@ -84,13 +96,50 @@ class EmoDataset(torch.utils.data.Dataset):
         return emo_data, mel_data
 
 
+class EmoBatchCollate(object):
+    def __init__(self, min_div: int, emo_features: int, n_mels: int):
+        self.min_div = min_div
+        self.emo_features = emo_features
+        self.n_mels = n_mels
+        super().__init__()
+
+    def __call__(
+        self, batch: List[Tuple[torch.Tensor, torch.Tensor]]
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        batch_len = len(batch)
+        mel_max_len = max(data[1].shape[-1] for data in batch)
+
+        emo_data = torch.zeros((batch_len, self.emo_features), dtype=torch.long)
+        mel_data = torch.zeros((batch_len, self.n_mels, mel_max_len), dtype=torch.float32)
+        for _ in range(self.min_div):
+            if mel_max_len % self.min_div == 0:
+                break
+            mel_max_len += 1
+        assert mel_max_len % self.min_div == 0
+
+        for i, item in enumerate(batch):
+            emo, mel = item
+            emo_data[i] = emo
+            mel_data[i, :, : mel.shape[-1]] = mel
+        return emo_data, mel_data
+
+
 if __name__ == "__main__":
     dataset = EmoDataset(_db, n_fft=1024, n_mels=80)
     from torch.utils.data import DataLoader
 
-    loader = DataLoader(dataset=dataset, shuffle=True, batch_size=10)
+    batch_collate = EmoBatchCollate(
+        dataset.min_div, dataset.emo_features, dataset.mels_count
+    )
+    loader = DataLoader(
+        dataset=dataset, shuffle=True, batch_size=10, collate_fn=batch_collate
+    )
 
-    # TODO: add a arrangement
+    count = 0
+
     for emo_data, mel_data in loader:
         print(emo_data)
-        break
+        print(mel_data.shape)
+        count += 1
+        if count >= 3:
+            break
