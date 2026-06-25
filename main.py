@@ -30,13 +30,17 @@ class EmoClassify(torch.nn.Module):
                 ).cuda()
             )
             n_mels //= 2
-        self.linear = torch.nn.Linear(n_mels, out_features)
+        self.linear = torch.nn.Linear(n_mels, 1000)
+        self.linear2 = torch.nn.Linear(1000, 1000)
+        self.linear3 = torch.nn.Linear(1000, out_features)
 
     def forward(self, x_0: torch.Tensor) -> torch.Tensor:
         for conv in self.convs:
             x_0 = conv(x_0)
         x_0 = x_0.transpose(-1, -2)
         x_0 = self.linear(x_0)
+        x_0 = self.linear2(x_0)
+        x_0 = self.linear3(x_0)
         x_0, _indices = x_0.max(dim=-2)
         x_0, _indices = x_0.max(dim=-2)
         x_0 = self.softmax(x_0)
@@ -95,3 +99,4 @@ if __name__ == "__main__":
                     progress_bar.set_description(
                         f"Epoch: {epoch}, iteration: {iteration}, loss: {loss.item()}"
                     )
+        model.eval()
