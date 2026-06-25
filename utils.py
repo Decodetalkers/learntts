@@ -1,6 +1,8 @@
 import torch
 from typing import Optional
 
+EMO_EFATURES = 5
+
 
 def mel_spectrogram(
     y: torch.Tensor,

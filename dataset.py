@@ -2,12 +2,13 @@ import torch
 import pandas as pd
 from pathlib import Path
 import torchaudio
-from utils import mel_spectrogram
+from utils import mel_spectrogram, EMO_EFATURES
 from typing import Tuple, List
 
+# TODO: tran dataset and valid dataset
 _THIS_DIR = Path(__file__).parent.resolve()
 _DATA_DIR = _THIS_DIR / "EmoSpeech-0020"
-_db = csv = pd.read_csv("./EmoSpeech-0020/0020.txt", sep="\t", header=None)
+EmoDB = csv = pd.read_csv("./EmoSpeech-0020/0020.txt", sep="\t", header=None)
 
 _natural = "Neutral"
 _surprise = "Surprise"
@@ -56,7 +57,7 @@ class EmoDataset(torch.utils.data.Dataset):
 
     @property
     def emo_features(self) -> int:
-        return 5
+        return EMO_EFATURES
 
     def __len__(self) -> int:
         return self.emodb.shape[0]
@@ -123,11 +124,12 @@ class EmoBatchCollate(object):
             emo, mel = item
             emo_data[i] = emo
             mel_data[i, :, : mel.shape[-1]] = mel
+        mel_data = mel_data.unsqueeze(dim=1)
         return emo_data, mel_data
 
 
 if __name__ == "__main__":
-    dataset = EmoDataset(_db, n_fft=1024, n_mels=80)
+    dataset = EmoDataset(EmoDB, n_fft=1024, n_mels=80)
     from torch.utils.data import DataLoader
 
     batch_collate = EmoBatchCollate(
