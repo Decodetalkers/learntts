@@ -124,7 +124,6 @@ class EmoBatchCollate(object):
             emo, mel = item
             emo_data[i] = emo
             mel_data[i, :, : mel.shape[-1]] = mel
-        mel_data = mel_data.unsqueeze(dim=1)
         return emo_data, mel_data
 
 

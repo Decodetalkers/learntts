@@ -14,35 +14,37 @@ from dataset import EmoBatchCollate, EmoBatchCollate, EmoDataset, EmoDB
 class EmoClassify(torch.nn.Module):
     convs: List[torch.nn.Module]
 
-    def __init__(self, n_mels: int, out_features: int):
+    def __init__(
+        self,
+        n_mels: int,
+        out_features: int,
+        hidden_dim: int = 1024,
+        num_layers: int = 1,
+        dropout: float = 0.1,
+    ):
         super(EmoClassify, self).__init__()
 
         self.softmax = torch.nn.Softmax(dim=-1)
-        self.convs = []
-        while n_mels % 2 == 0:
-            self.convs.append(
-                torch.nn.Conv2d(
-                    in_channels=1,
-                    out_channels=1,
-                    kernel_size=(3, 3),
-                    padding=(1, 1),
-                    stride=(2, 2),
-                ).cuda()
-            )
-            n_mels //= 2
-        self.linear = torch.nn.Linear(n_mels, 1000)
-        self.linear2 = torch.nn.Linear(1000, 1000)
-        self.linear3 = torch.nn.Linear(1000, out_features)
+        self.unet = Unet(1000, 128,in_channels=1, out_channels=1)
+
+        self.lstm = torch.nn.LSTM(
+            n_mels,
+            hidden_dim,
+            num_layers,
+            batch_first=True,
+            dropout=dropout if num_layers > 1 else 0,
+        )
+
+        self.linear = torch.nn.Linear(hidden_dim, out_features)
 
     def forward(self, x_0: torch.Tensor) -> torch.Tensor:
-        for conv in self.convs:
-            x_0 = conv(x_0)
+        x_0 = x_0.unsqueeze(dim=1)
+        x_0 = self.unet(x_0)
+        x_0 = x_0.squeeze()
         x_0 = x_0.transpose(-1, -2)
+        x_0, (_hidden, _cell) = self.lstm(x_0)
         x_0 = self.linear(x_0)
-        x_0 = self.linear2(x_0)
-        x_0 = self.linear3(x_0)
-        x_0, _indices = x_0.max(dim=-2)
-        x_0, _indices = x_0.max(dim=-2)
+        x_0  = x_0.mean(dim=-2)
         x_0 = self.softmax(x_0)
 
         return x_0
