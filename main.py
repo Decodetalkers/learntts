@@ -1,7 +1,7 @@
 from torch.utils.tensorboard import SummaryWriter
 from tqdm.asyncio import tqdm
 from torch.utils.data import DataLoader
-from typing import List
+from typing import List, Tuple
 import torch
 from unet import Unet
 import params
@@ -24,10 +24,11 @@ class EmoClassify(torch.nn.Module):
         hidden_dim: int = 1024,
         num_layers: int = 1,
         dropout: float = 0.1,
+        tau: float = 0.01,
     ):
         super(EmoClassify, self).__init__()
 
-        self.softmax = torch.nn.Softmax(dim=-1)
+        self.tau = tau
         self.unet = Unet(1000, 128, in_channels=1, out_channels=1)
 
         self.lstm = torch.nn.LSTM(
@@ -39,6 +40,7 @@ class EmoClassify(torch.nn.Module):
         )
 
         self.linear = torch.nn.Linear(hidden_dim, out_features)
+        self.softmax = torch.nn.Softmax(dim=-1)
 
     def forward(self, x_0: torch.Tensor) -> torch.Tensor:
         x_0 = x_0.unsqueeze(dim=1)
@@ -50,6 +52,15 @@ class EmoClassify(torch.nn.Module):
         x_0 = x_0.mean(dim=-2)
         x_0 = self.softmax(x_0)
 
+        return x_0
+
+    def train_label(self, x_0: torch.Tensor) -> torch.Tensor:
+        """
+        this part make the biggest label stronger, in order to predict the right label
+        Only used in training process
+        """
+        x_0 = self.forward(x_0)
+        x_0 = self.softmax(x_0 / self.tau)
         return x_0
 
 
@@ -96,17 +107,21 @@ if __name__ == "__main__":
 
     loss_collect: List[float] = []
 
+    accuracy_collect: Tuple[List[float], List[float]] = ([],[])
+
     optimizer = torch.optim.Adam(params=model.parameters(), lr=params.learning_rate)
 
     iteration = 0
     lossfn = torch.nn.CrossEntropyLoss()
+    softmax = torch.nn.Softmax(dim=1)
+
     for epoch in range(1, params.n_epochs + 1):
         model.train()
         with tqdm(train_loader, total=len(train) // params.batch_size) as progress_bar:
             for batch_idx, (emo, mel) in enumerate(progress_bar):
                 model.zero_grad()
-                predict = model(mel.to(params.device))
-                loss = lossfn(predict.cpu(), emo.float())
+                predict = model.train_label(mel.to(params.device))
+                loss = lossfn(predict, emo.argmax(dim=1).to(params.device))
                 loss.backward()
 
                 loss_collect.append(loss.item())
@@ -119,11 +134,46 @@ if __name__ == "__main__":
 
                 if batch_idx % 5 == 0:
                     progress_bar.set_description(
-                        f"Epoch: {epoch}, iteration: {iteration}, loss: {loss.item()}"
+                        f"Epoch: {epoch}, iteration: {iteration}, loss: {loss.item():.2f}"
                     )
         model.eval()
         with torch.set_grad_enabled(False):
-            accuracy = compute_accuracy(model, test_loader)
-            print(f"Epoch: {epoch}/{params.n_epochs} training accuracy: {accuracy}%")
+            accuracy_train = compute_accuracy(model, train_loader)
+            accuracy_collect[0].append(accuracy_train)
+            print(
+                f"Epoch: {epoch}/{params.n_epochs} training accuracy: {accuracy_train:.2f}%"
+            )
+            accuracy_test = compute_accuracy(model, test_loader)
+            print(f"Epoch: {epoch}/{params.n_epochs} testing accuracy: {accuracy_test:.2f}%")
+            accuracy_collect[1].append(accuracy_test)
 
     torch.save(model.state_dict(), save_model)
+
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from pathlib import Path
+
+    plt.figure(figsize=(10, 10))
+    iter_count = len(loss_collect)
+    x_axis = np.arange(iter_count)
+    plt.title("loss iteration")
+    plt.xlabel("iteration")
+    plt.ylabel("loss")
+    plt.ylim(top=3)
+    plt.plot(x_axis, loss_collect)
+    plt.savefig(Path(params.log_dir) / "loss_iter.png")
+    plt.close()
+
+    plt.figure(figsize=(10, 10))
+    accuracy_train_l, accuracy_test_l = accuracy_collect
+    epoch_count = len(accuracy_collect[0])
+    x_axis = np.arange(epoch_count)
+    plt.title("Accuracy Figure")
+    plt.xlabel("epoch")
+    plt.ylabel("accuracy %")
+    plt.ylim(top=100)
+    plt.plot(x_axis, accuracy_test_l, color='y', label='Test')
+    plt.plot(x_axis, accuracy_train_l, color='b', label='Train')
+    plt.legend(loc="upper right")
+    plt.savefig(Path(params.log_dir) / "accuracy.png")
+    plt.close()

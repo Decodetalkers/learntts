@@ -8,3 +8,4 @@ wheels/
 logs
 # Virtual environments
 .venv
+emo_classify_01.pt

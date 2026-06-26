@@ -20,4 +20,5 @@ dependencies = [
 [dependency-groups]
 dev = [
     "ipython>=8.39.0",
+    "pyqt6>=6.11.0",
 ]
