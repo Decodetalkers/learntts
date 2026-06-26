@@ -143,6 +143,7 @@ if __name__ == "__main__":
     for emo_data, mel_data in loader:
         print(emo_data)
         print(mel_data.shape)
+        print(emo_data.argmax(dim=1))
         count += 1
         if count >= 3:
             break
