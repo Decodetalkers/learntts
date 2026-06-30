@@ -2,7 +2,7 @@ import torch
 import pandas as pd
 from pathlib import Path
 import torchaudio
-from utils import mel_spectrogram, EMO_EFATURES
+from utils import mel_spectrogram, EMO_FEATURES
 from typing import Tuple, List
 
 # TODO: tran dataset and valid dataset
@@ -57,7 +57,7 @@ class EmoDataset(torch.utils.data.Dataset):
 
     @property
     def emo_features(self) -> int:
-        return EMO_EFATURES
+        return EMO_FEATURES
 
     def __len__(self) -> int:
         return self.emodb.shape[0]

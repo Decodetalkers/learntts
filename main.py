@@ -5,7 +5,7 @@ from typing import List, Tuple
 import torch
 from unet import Unet
 import params
-from utils import EMO_EFATURES
+from utils import EMO_FEATURES
 from dataset import EmoBatchCollate, EmoBatchCollate, EmoDataset, EmoDB
 
 
@@ -84,7 +84,7 @@ if __name__ == "__main__":
     logger = SummaryWriter(log_dir=params.log_dir)
 
     print("Initializing model...")
-    model = EmoClassify(params.n_mels, EMO_EFATURES).to(params.device)
+    model = EmoClassify(params.n_mels, EMO_FEATURES).to(params.device)
     dataset = EmoDataset(EmoDB, n_fft=params.n_fft, n_mels=params.n_mels)
     batch_collate = EmoBatchCollate(
         dataset.min_div, dataset.emo_features, dataset.mels_count
