@@ -7,7 +7,7 @@ from unet import Unet
 import params
 from utils import EMO_FEATURES
 from dataset import EmoBatchCollate, EmoBatchCollate, EmoDataset, EmoDB
-
+from classification import EmoClassification
 
 save_model = "emo_classify_01.pt"
 
@@ -21,35 +21,17 @@ class EmoClassify(torch.nn.Module):
         self,
         n_mels: int,
         out_features: int,
-        hidden_dim: int = 1024,
-        num_layers: int = 1,
-        dropout: float = 0.1,
         tau: float = 0.01,
     ):
         super(EmoClassify, self).__init__()
 
         self.tau = tau
-        self.unet = Unet(1000, 128, in_channels=1, out_channels=1)
 
-        self.lstm = torch.nn.LSTM(
-            n_mels,
-            hidden_dim,
-            num_layers,
-            batch_first=True,
-            dropout=dropout if num_layers > 1 else 0,
-        )
-
-        self.linear = torch.nn.Linear(hidden_dim, out_features)
+        self.classify = EmoClassification(in_channels=n_mels, out_channels=out_features)
         self.softmax = torch.nn.Softmax(dim=-1)
 
     def forward(self, x_0: torch.Tensor) -> torch.Tensor:
-        x_0 = x_0.unsqueeze(dim=1)
-        x_0 = self.unet(x_0)
-        x_0 = x_0.squeeze()
-        x_0 = x_0.transpose(-1, -2)
-        x_0, (_hidden, _cell) = self.lstm(x_0)
-        x_0 = self.linear(x_0)
-        x_0 = x_0.mean(dim=-2)
+        x_0 = self.classify(x_0)
         x_0 = self.softmax(x_0)
 
         return x_0
@@ -107,7 +89,7 @@ if __name__ == "__main__":
 
     loss_collect: List[float] = []
 
-    accuracy_collect: Tuple[List[float], List[float]] = ([],[])
+    accuracy_collect: Tuple[List[float], List[float]] = ([], [])
 
     optimizer = torch.optim.Adam(params=model.parameters(), lr=params.learning_rate)
 
@@ -144,7 +126,9 @@ if __name__ == "__main__":
                 f"Epoch: {epoch}/{params.n_epochs} training accuracy: {accuracy_train:.2f}%"
             )
             accuracy_test = compute_accuracy(model, test_loader)
-            print(f"Epoch: {epoch}/{params.n_epochs} testing accuracy: {accuracy_test:.2f}%")
+            print(
+                f"Epoch: {epoch}/{params.n_epochs} testing accuracy: {accuracy_test:.2f}%"
+            )
             accuracy_collect[1].append(accuracy_test)
 
     torch.save(model.state_dict(), save_model)
@@ -172,8 +156,8 @@ if __name__ == "__main__":
     plt.xlabel("epoch")
     plt.ylabel("accuracy %")
     plt.ylim(top=100)
-    plt.plot(x_axis, accuracy_test_l, color='y', label='Test')
-    plt.plot(x_axis, accuracy_train_l, color='b', label='Train')
+    plt.plot(x_axis, accuracy_test_l, color="y", label="Test")
+    plt.plot(x_axis, accuracy_train_l, color="b", label="Train")
     plt.legend(loc="upper right")
     plt.savefig(Path(params.log_dir) / "accuracy.png")
     plt.close()
