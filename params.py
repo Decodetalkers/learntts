@@ -2,7 +2,7 @@ import torch
 
 device = torch.device("cuda")
 seed = 37
-n_epochs = 50
+n_epochs = 600
 log_dir = "logs/new_exp"
 learning_rate = 1e-5
 batch_size = 10

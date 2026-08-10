@@ -30,27 +30,28 @@ class EmoClassify(torch.nn.Module):
         self.classify = EmoClassification(in_channels=n_mels, out_channels=out_features)
         self.softmax = torch.nn.Softmax(dim=-1)
 
-    def forward(self, x_0: torch.Tensor) -> torch.Tensor:
-        x_0 = self.classify(x_0)
-        x_0 = self.softmax(x_0)
-
-        return x_0
+    def forward(self, x_0: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        x_0, t = self.classify(x_0)
+        return x_0, t
 
     def train_label(self, x_0: torch.Tensor) -> torch.Tensor:
         """
         this part make the biggest label stronger, in order to predict the right label
         Only used in training process
         """
-        x_0 = self.forward(x_0)
-        x_0 = self.softmax(x_0 / self.tau)
-        return x_0
+        x_t, t = self.forward(x_0)
+        t_w = 1.0 - t
+        t_w = - torch.log(t_w ** 6) + 1.0
+        x_t = x_t * t_w[:, None]
+        loss = self.softmax(x_t / self.tau)
+        return loss
 
 
 @torch.no_grad()
 def compute_accuracy(model: EmoClassify, data_loader: DataLoader) -> float:
     correct_pred, num_examples = torch.tensor(0, dtype=torch.int64).to(params.device), 0
     for emo, mel in data_loader:
-        predict = model(mel.to(params.device))
+        predict, _ = model(mel.to(params.device))
         predict_labels = predict.argmax(dim=1)
         emo_labels = emo.to(params.device).argmax(dim=1)
         sum = (predict_labels == emo_labels).sum()

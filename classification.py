@@ -1,5 +1,7 @@
 import torch
 import torch.nn as nn
+from diffusion import Diffusion
+from typing import Tuple
 
 
 # [batch, channel, mels, time]
@@ -13,6 +15,7 @@ class EmoClassification(torch.nn.Module):
         dropout: float = 0.1,
     ):
         super().__init__()
+        self.diffusion = Diffusion()
         self.cnn = nn.Sequential(
             nn.Conv1d(in_channels, 128, kernel_size=3, padding=1),
             nn.ReLU(),
@@ -33,16 +36,19 @@ class EmoClassification(torch.nn.Module):
 
         self.fc = nn.Linear(hidden_dim, out_channels)
         self.pool = nn.AdaptiveAvgPool1d(1)
+        self.softmax = torch.nn.Softmax(dim=-1)
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        x, t = self.diffusion.diffuse(x)
         x = self.cnn(x)  # (batch, 512, time)
         x = x.transpose(-1, -2)  # (batch, time, 512)
-        x, (_hidden, _cell) = self.lstm(x) # (batch, time, hidden_dim)
+        x, (_hidden, _cell) = self.lstm(x)  # (batch, time, hidden_dim)
         x = self.fc(x)  # (batch, time, 5)
-        x = x.transpose(-1, -2)  # (batch, 5, hidden_dim)
+        x = x.transpose(-1, -2)  # (batch, 5, time)
         x = self.pool(x)  # (batch, 5, 1)
         x = x.squeeze(-1)  # (batch, 5)
-        return x
+        x = self.softmax(x)
+        return x, t
 
 
 if __name__ == "__main__":
