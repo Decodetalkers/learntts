@@ -101,55 +101,25 @@ class ResidualDownsample(nn.Module):
         return x
 
 
-class TimeMLP(nn.Module):
-    """
-    naive introduce timestep information to feature maps with mlp and add shortcut
-    """
-
-    def __init__(self, embedding_dim: int, hidden_dim: int, out_dim: int):
-        super().__init__()
-        self.mlp = nn.Sequential(
-            nn.Linear(embedding_dim, hidden_dim),
-            nn.SiLU(),
-            nn.Linear(hidden_dim, out_dim),
-        )
-        self.act = nn.SiLU()
-
-    def forward(self, x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
-        t_emb = self.mlp(t).unsqueeze(-1).unsqueeze(-1)
-        x = x + t_emb
-
-        return self.act(x)
-
-
 class EncoderBlock(nn.Module):
-    def __init__(self, in_channels: int, out_channels: int, time_embedding_dim: int):
+    def __init__(self, in_channels: int, out_channels: int):
         super().__init__()
         self.conv0 = nn.Sequential(
             *[ResidualBottleneck(in_channels, in_channels) for _i in range(3)],
             ResidualBottleneck(in_channels, out_channels // 2),
         )
 
-        self.time_mlp = TimeMLP(
-            embedding_dim=time_embedding_dim,
-            hidden_dim=out_channels,
-            out_dim=out_channels // 2,
-        )
         self.conv1 = ResidualDownsample(out_channels // 2, out_channels)
 
-    def forward(
-        self, x: torch.Tensor, t: Optional[torch.Tensor] = None
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         x_shortcut = self.conv0(x)
-        if t is not None:
-            x = self.time_mlp(x_shortcut, t)
         x = self.conv1(x)
 
         return x, x_shortcut
 
 
 class DecoderBlock(nn.Module):
-    def __init__(self, in_channels: int, out_channels: int, time_embedding_dim: int):
+    def __init__(self, in_channels: int, out_channels: int):
         super().__init__()
         self.upsample = nn.Upsample(
             scale_factor=2, mode="bilinear", align_corners=False
@@ -159,24 +129,17 @@ class DecoderBlock(nn.Module):
             ResidualBottleneck(in_channels, in_channels // 2),
         )
 
-        self.time_mlp = TimeMLP(
-            embedding_dim=time_embedding_dim,
-            hidden_dim=in_channels,
-            out_dim=in_channels // 2,
-        )
         self.conv1 = ResidualBottleneck(in_channels // 2, out_channels // 2)
 
     def forward(
         self,
         x: torch.Tensor,
         x_shortcut: torch.Tensor,
-        t: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         x = self.upsample(x)
         x = torch.cat([x, x_shortcut], dim=1)
         x = self.conv0(x)
-        if t is not None:
-            x = self.time_mlp(x, t)
+
         x = self.conv1(x)
 
         return x
@@ -189,7 +152,6 @@ class Unet(nn.Module):
 
     def __init__(
         self,
-        time_embedding_dim: int,
         in_channels: int = 3,
         out_channels: int = 1,
         base_dim: int = 32,  # become thicker
@@ -203,13 +165,12 @@ class Unet(nn.Module):
 
         # it is used to make channels become base_dim
         self.init_conv = ConvBnSiLu(in_channels, base_dim, 3, 1, 1)
-        self.time_conv = nn.Conv1d(1, time_embedding_dim, 3, padding=1, stride=1)
 
         self.encoder_blocks = nn.ModuleList(
-            [EncoderBlock(c[0], c[1], time_embedding_dim) for c in channels]
+            [EncoderBlock(c[0], c[1]) for c in channels]
         )
         self.decoder_blocks = nn.ModuleList(
-            [DecoderBlock(c[1], c[0], time_embedding_dim) for c in channels[::-1]]
+            [DecoderBlock(c[1], c[0]) for c in channels[::-1]]
         )
 
         self.mid_block = nn.Sequential(
@@ -222,22 +183,17 @@ class Unet(nn.Module):
         )
 
     # time_stamp [batch_size]
-    def forward(
-        self, x: torch.Tensor, time_stamp: Optional[torch.Tensor] = None
-    ) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.init_conv(x)
-        if time_stamp is not None:
-            time_stamp = time_stamp.unsqueeze(0)
-            time_stamp = self.time_conv(time_stamp)
-            time_stamp = time_stamp.transpose(-1, -2)
+
         encoder_shortcuts: List[nn.Module] = []
         for encoder_block in self.encoder_blocks:
-            x, x_shortcut = encoder_block(x, time_stamp)
+            x, x_shortcut = encoder_block(x)
             encoder_shortcuts.append(x_shortcut)
         x = self.mid_block(x)
         encoder_shortcuts.reverse()
         for decoder_block, shortcut in zip(self.decoder_blocks, encoder_shortcuts):
-            x = decoder_block(x, shortcut, time_stamp)
+            x = decoder_block(x, shortcut)
         x = self.final_conv(x)
 
         return x
@@ -256,7 +212,6 @@ class Unet(nn.Module):
 
 if __name__ == "__main__":
     x = torch.randint(0, 100, (3, 1, 256, 224))
-    t = torch.rand((3,))
-    model: Unet = Unet(1000, in_channels=1, out_channels=1)
-    y = model(x.float(), t)
+    model: Unet = Unet(in_channels=1, out_channels=1)
+    y = model(x.float())
     print(y.shape)

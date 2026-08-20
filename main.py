@@ -8,6 +8,8 @@ import params
 from utils import EMO_FEATURES
 from dataset import EmoBatchCollate, EmoBatchCollate, EmoDataset, EmoDB
 from classification import EmoClassification
+from diffusion import Diffusion
+import argparse
 
 save_model = "emo_classify_01.pt"
 
@@ -26,23 +28,25 @@ class EmoClassify(torch.nn.Module):
         super(EmoClassify, self).__init__()
 
         self.tau = tau
+        self.diffusion = Diffusion()
 
         self.classify = EmoClassification(in_channels=n_mels, out_channels=out_features)
         self.softmax = torch.nn.Softmax(dim=-1)
 
-    def forward(self, x_0: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        x_0, t = self.classify(x_0)
-        return x_0, t
+    def forward(self, x_0: torch.Tensor) -> torch.Tensor:
+        x_0 = self.classify(x_0)
+        return x_0
 
     def train_label(self, x_0: torch.Tensor) -> torch.Tensor:
         """
         this part make the biggest label stronger, in order to predict the right label
         Only used in training process
         """
-        x_t, t = self.forward(x_0)
-        t_w = 1.0 - t
-        t_w = - torch.log(t_w ** 6) + 1.0
-        x_t = x_t * t_w[:, None]
+        x_0, _t = self.diffusion.diffuse(x_0)
+        x_t = self.forward(x_0)
+        #t_w = 1.0 - t
+        #t_w = -torch.log(t_w**6) + 1.0
+        #x_t = x_t * t_w[:, None]
         loss = self.softmax(x_t / self.tau)
         return loss
 
@@ -51,23 +55,34 @@ class EmoClassify(torch.nn.Module):
 def compute_accuracy(model: EmoClassify, data_loader: DataLoader) -> float:
     correct_pred, num_examples = torch.tensor(0, dtype=torch.int64).to(params.device), 0
     for emo, mel in data_loader:
-        predict, _ = model(mel.to(params.device))
+        predict = model(mel.to(params.device))
         predict_labels = predict.argmax(dim=1)
         emo_labels = emo.to(params.device).argmax(dim=1)
         sum = (predict_labels == emo_labels).sum()
         correct_pred += sum
-        num_examples += params.batch_size
+        num_examples += params.batch_size2
     return correct_pred.float().item() / num_examples * 100
 
 
 if __name__ == "__main__":
     # what need to take care about is the length of the time. It should always be consisted with n_mels
-
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-c",
+        "--checkpoint",
+        type=str,
+        required=True,
+        help="path to a checkpoint of Denoise",
+    )
+    args = parser.parse_args()
     print("Initializing logger...")
     logger = SummaryWriter(log_dir=params.log_dir)
 
     print("Initializing model...")
     model = EmoClassify(params.n_mels, EMO_FEATURES).to(params.device)
+    model.classify.denoise.load_state_dict(
+        torch.load(args.checkpoint, map_location=lambda loc, _: loc)
+    )
     dataset = EmoDataset(EmoDB, n_fft=params.n_fft, n_mels=params.n_mels)
     batch_collate = EmoBatchCollate(
         dataset.min_div, dataset.emo_features, dataset.mels_count
@@ -78,13 +93,13 @@ if __name__ == "__main__":
     train_loader = DataLoader(
         dataset=train,
         shuffle=True,
-        batch_size=params.batch_size,
+        batch_size=params.batch_size2,
         collate_fn=batch_collate,
     )
     test_loader = DataLoader(
         dataset=test,
         shuffle=True,
-        batch_size=params.batch_size,
+        batch_size=params.batch_size2,
         collate_fn=batch_collate,
     )
 
@@ -100,7 +115,7 @@ if __name__ == "__main__":
 
     for epoch in range(1, params.n_epochs + 1):
         model.train()
-        with tqdm(train_loader, total=len(train) // params.batch_size) as progress_bar:
+        with tqdm(train_loader, total=len(train) // params.batch_size2) as progress_bar:
             for batch_idx, (emo, mel) in enumerate(progress_bar):
                 model.zero_grad()
                 predict = model.train_label(mel.to(params.device))

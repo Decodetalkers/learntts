@@ -14,7 +14,12 @@ def get_noise(
 
 
 class Diffusion(nn.Module):
-    def __init__(self, beta_min: float = 0.05, beta_max: int | float = 20, cumulative: bool = True):
+    def __init__(
+        self,
+        beta_min: float = 0.05,
+        beta_max: int | float = 20,
+        cumulative: bool = True,
+    ):
         super().__init__()
         self.beta_min = beta_min
         self.beta_max = beta_max

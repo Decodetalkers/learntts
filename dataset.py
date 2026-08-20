@@ -31,7 +31,7 @@ class EmoDataset(torch.utils.data.Dataset):
         data: pd.DataFrame,
         n_fft: int = 1024,
         n_mels: int = 80,
-        sample_rate: int = 16000,
+        sample_rate: int = 22050,
         hop_length: int = 256,
         win_length: int = 1024,
         f_min: float = 0.0,
@@ -64,7 +64,9 @@ class EmoDataset(torch.utils.data.Dataset):
 
     def get_mel(self, file: str | Path) -> torch.Tensor:
         audio, sr = torchaudio.load(file)
-        assert sr == self.sample_rate
+        if sr != self.sample_rate:
+            resample = torchaudio.transforms.Resample(sr, self.sample_rate)
+            audio = resample(audio)
         mel = mel_spectrogram(
             audio,
             self.n_fft,
