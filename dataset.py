@@ -30,7 +30,7 @@ class EmoDataset(torch.utils.data.Dataset):
         self,
         data: pd.DataFrame,
         n_fft: int = 1024,
-        n_mels: int = 80,
+        n_mels: int = 160,
         sample_rate: int = 22050,
         hop_length: int = 256,
         win_length: int = 1024,

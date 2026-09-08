@@ -14,9 +14,9 @@ def mel_spectrogram(
     f_min: float,
     f_max: Optional[float],
 ) -> torch.Tensor:
-    from speechbrain.lobes.models.FastSpeech2 import mel_spectogram
+    from speechbrain.lobes.models.FastSpeech2 import mel_spectrogram
 
-    spec, _ = mel_spectogram(
+    spec, _ = mel_spectrogram(
         audio=y.squeeze(),
         sample_rate=sample_rate,
         n_fft=n_fft,

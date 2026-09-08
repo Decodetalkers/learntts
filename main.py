@@ -30,7 +30,7 @@ class EmoClassify(torch.nn.Module):
         self.tau = tau
         self.diffusion = Diffusion()
 
-        self.classify = EmoClassification(in_channels=n_mels, out_channels=out_features)
+        self.classify = EmoClassification(in_channels=n_mels, out_channels=out_features, n_mels=n_mels)
         self.softmax = torch.nn.Softmax(dim=-1)
 
     def forward(self, x_0: torch.Tensor) -> torch.Tensor:
@@ -44,9 +44,9 @@ class EmoClassify(torch.nn.Module):
         """
         x_0, _t = self.diffusion.diffuse(x_0)
         x_t = self.forward(x_0)
-        #t_w = 1.0 - t
-        #t_w = -torch.log(t_w**6) + 1.0
-        #x_t = x_t * t_w[:, None]
+        # t_w = 1.0 - t
+        # t_w = -torch.log(t_w**6) + 1.0
+        # x_t = x_t * t_w[:, None]
         loss = self.softmax(x_t / self.tau)
         return loss
 

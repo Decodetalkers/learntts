@@ -10,6 +10,7 @@ class EmoClassification(torch.nn.Module):
         self,
         in_channels: int,
         out_channels: int,
+        n_mels: int,
         hidden_dim: int = 1024,
         num_layers: int = 1,
         dropout: float = 0.1,
@@ -32,7 +33,7 @@ class EmoClassification(torch.nn.Module):
             batch_first=True,
             dropout=dropout if num_layers > 1 else 0,
         )
-        self.denoise = Denoise()
+        self.denoise = Denoise(n_mels)
 
         self.fc = nn.Linear(hidden_dim, out_channels)
         self.pool = nn.AdaptiveAvgPool1d(1)
@@ -53,6 +54,6 @@ class EmoClassification(torch.nn.Module):
 
 if __name__ == "__main__":
     x = torch.randint(0, 100, (3, 80, 224))
-    model: EmoClassification = EmoClassification(80, out_channels=4)
+    model: EmoClassification = EmoClassification(in_channels=80, out_channels=4, n_mels=160)
     y = model(x.float())
     print(y.shape)

@@ -16,9 +16,9 @@ save_model = "denoise.pt"
 
 
 class Denoise(nn.Module):
-    def __init__(self):
+    def __init__(self, features: int):
         super(Denoise, self).__init__()
-        self.unet = Unet(1, 1)
+        self.unet = Unet(features, 1, 1)
         self.diffusion = Diffusion()
 
         self.lossfn = torch.nn.MSELoss()
@@ -34,9 +34,11 @@ class Denoise(nn.Module):
         return x0
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = x.transpose(-1, -2)
         x = x.unsqueeze(dim=1)
         x = self.unet(x)
         x = x.squeeze(dim=1)
+        x = x.transpose(-1, -2)
         return x
 
     def diff_train(self, x_0: torch.Tensor) -> torch.Tensor:
@@ -56,7 +58,7 @@ if __name__ == "__main__":
     logger = SummaryWriter(log_dir=params.log_dir2)
 
     print("Initializing model...")
-    model = Denoise().to(params.device)
+    model = Denoise(params.n_mels).to(params.device)
     dataset = EmoDataset(EmoDB, n_fft=params.n_fft, n_mels=params.n_mels)
     batch_collate = EmoBatchCollate(
         dataset.min_div, dataset.emo_features, dataset.mels_count

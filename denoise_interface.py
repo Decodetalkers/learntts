@@ -3,7 +3,7 @@ import torch
 import argparse
 import torchaudio
 from speechbrain.inference.vocoders import HIFIGAN
-from speechbrain.lobes.models.FastSpeech2 import mel_spectogram
+from speechbrain.lobes.models.FastSpeech2 import mel_spectrogram
 from denoise import Denoise
 from typing import Tuple
 
@@ -77,12 +77,12 @@ if __name__ == "__main__":
     resample = torchaudio.transforms.Resample(rate, 22050)
 
     signal = resample(signal)
-    spectrogram, _ = mel_spectogram(
+    spectrogram, _ = mel_spectrogram(
         audio=signal.squeeze(),
         sample_rate=22050,
         hop_length=256,
         win_length=None,
-        n_mels=80,
+        n_mels=160,
         n_fft=1024,
         f_min=0.0,
         f_max=8000.0,
@@ -99,7 +99,7 @@ if __name__ == "__main__":
 
     spectrogram, t = diffusion.diffuse(spectrogram)
 
-    denoise = Denoise().to(params.device)
+    denoise = Denoise(160).to(params.device)
 
     denoise.load_state_dict(
         torch.load(args.checkpoint, map_location=lambda loc, _: loc)

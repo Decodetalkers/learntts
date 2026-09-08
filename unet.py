@@ -2,6 +2,7 @@
 from typing import Optional, List, Tuple
 import torch
 import torch.nn as nn
+from attention import SelfAttention
 
 
 class ChannelShuffle(nn.Module):
@@ -102,25 +103,28 @@ class ResidualDownsample(nn.Module):
 
 
 class EncoderBlock(nn.Module):
-    def __init__(self, in_channels: int, out_channels: int):
+    def __init__(self, in_channels: int, out_channels: int, features: int):
         super().__init__()
+        self.features = features // 2
         self.conv0 = nn.Sequential(
             *[ResidualBottleneck(in_channels, in_channels) for _i in range(3)],
             ResidualBottleneck(in_channels, out_channels // 2),
         )
 
         self.conv1 = ResidualDownsample(out_channels // 2, out_channels)
+        self.attention = SelfAttention(self.features, out_channels)
 
     def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         x_shortcut = self.conv0(x)
         x = self.conv1(x)
-
+        x = self.attention(x)
         return x, x_shortcut
 
 
 class DecoderBlock(nn.Module):
-    def __init__(self, in_channels: int, out_channels: int):
+    def __init__(self, in_channels: int, out_channels: int, features: int):
         super().__init__()
+        self.features = features
         self.upsample = nn.Upsample(
             scale_factor=2, mode="bilinear", align_corners=False
         )
@@ -130,6 +134,7 @@ class DecoderBlock(nn.Module):
         )
 
         self.conv1 = ResidualBottleneck(in_channels // 2, out_channels // 2)
+        self.attention = SelfAttention(features, out_channels // 2)
 
     def forward(
         self,
@@ -141,6 +146,7 @@ class DecoderBlock(nn.Module):
         x = self.conv0(x)
 
         x = self.conv1(x)
+        x = self.attention(x)
 
         return x
 
@@ -152,6 +158,7 @@ class Unet(nn.Module):
 
     def __init__(
         self,
+        features: int,
         in_channels: int = 3,
         out_channels: int = 1,
         base_dim: int = 32,  # become thicker
@@ -161,16 +168,16 @@ class Unet(nn.Module):
         assert isinstance(dim_mults, (list, tuple))
         assert base_dim % 2 == 0
 
-        channels = self._cal_channels(base_dim, dim_mults)
+        channels = self._cal_channels(base_dim, dim_mults, features)
 
         # it is used to make channels become base_dim
         self.init_conv = ConvBnSiLu(in_channels, base_dim, 3, 1, 1)
 
         self.encoder_blocks = nn.ModuleList(
-            [EncoderBlock(c[0], c[1]) for c in channels]
+            [EncoderBlock(c[0], c[1], c[2]) for c in channels]
         )
         self.decoder_blocks = nn.ModuleList(
-            [DecoderBlock(c[1], c[0]) for c in channels[::-1]]
+            [DecoderBlock(c[1], c[0], c[2]) for c in channels[::-1]]
         )
 
         self.mid_block = nn.Sequential(
@@ -199,19 +206,22 @@ class Unet(nn.Module):
         return x
 
     def _cal_channels(
-        self, base_dim: int, dim_mults: List[int]
-    ) -> List[Tuple[int, int]]:
+        self, base_dim: int, dim_mults: List[int], features: int
+    ) -> List[Tuple[int, int, int]]:
         dims = [base_dim * x for x in dim_mults]
         dims.insert(0, base_dim)
-        channels: List[Tuple[int, int]] = []
+        channels: List[Tuple[int, int, int]] = []
         for i in range(len(dims) - 1):
-            channels.append((dims[i], dims[i + 1]))  # in_channel, out_channel
+            channels.append(
+                (dims[i], dims[i + 1], features)
+            )  # in_channel, out_channel, features
+            features //= 2
 
         return channels
 
 
 if __name__ == "__main__":
-    x = torch.randint(0, 100, (3, 1, 256, 224))
-    model: Unet = Unet(in_channels=1, out_channels=1)
+    x = torch.randint(0, 100, (3, 1, 256, 80))
+    model: Unet = Unet(features=80, in_channels=1, out_channels=1)
     y = model(x.float())
     print(y.shape)
