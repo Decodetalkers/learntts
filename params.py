@@ -8,7 +8,7 @@ log_dir = "logs/new_exp"
 log_dir2 = "logs/denoise"
 learning_rate = 1e-5
 batch_size = 10
-batch_size2 = 5
+batch_size2 = 20
 denoise_batch_size = 4
 
 f_min = 0
