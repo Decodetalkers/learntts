@@ -3,10 +3,12 @@ from utils import fix_len_compatibility
 
 device = torch.device("cuda")
 seed = 37
-n_epochs = 1000
+n_epochs_denoise = 100
+n_epochs = 500
 log_dir = "logs/new_exp"
 log_dir2 = "logs/denoise"
 learning_rate = 1e-5
+learning_rate_denoise = 1e-4
 batch_size = 10
 batch_size2 = 20
 denoise_batch_size = 4

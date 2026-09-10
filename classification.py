@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from typing import Tuple
 from denoise import Denoise
-from attention import SelfAttentionNoChannels
+from attention import SelfAttention
 
 
 # [batch, channel, mels, time]
@@ -24,7 +24,7 @@ class EmoClassification(torch.nn.Module):
             nn.Conv1d(256, 512, kernel_size=3, padding=1),
             nn.ReLU(),
         )
-        self.attention = SelfAttentionNoChannels(512)
+        self.attention = SelfAttention(512)
 
         self.denoise = Denoise(n_mels)
         for p in self.denoise.parameters():

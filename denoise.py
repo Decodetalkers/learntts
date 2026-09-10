@@ -81,11 +81,11 @@ if __name__ == "__main__":
 
     loss_collect: List[float] = []
 
-    optimizer = torch.optim.Adam(params=model.parameters(), lr=params.learning_rate)
+    optimizer = torch.optim.Adam(params=model.parameters(), lr=params.learning_rate_denoise)
 
     iteration = 0
 
-    for epoch in range(1, params.n_epochs + 1):
+    for epoch in range(1, params.n_epochs_denoise + 1):
         model.train()
         with tqdm(
             train_loader, total=len(train) // params.denoise_batch_size
