@@ -1,15 +1,15 @@
-from unet import Unet
-from diffusion import Diffusion
+from .unet import Unet
+from .diffusion import Diffusion
 from typing import List, Tuple
 import torch
 import torch.nn as nn
-import params
-from utils import EMO_FEATURES
-from dataset import EmoBatchCollate, EmoBatchCollate, EmoDataset, EmoDB
+import learntts.params as params
+from .utils import EMO_FEATURES
+from .dataset import EmoBatchCollate, EmoBatchCollate, EmoDataset, EmoDB
 from torch.utils.tensorboard import SummaryWriter
 from tqdm.asyncio import tqdm
 from torch.utils.data import DataLoader
-from utils import fix_len_compatibility
+from .utils import fix_len_compatibility
 import numpy as np
 
 save_model = "denoise.pt"
@@ -51,7 +51,7 @@ class Denoise(nn.Module):
         return self.lossfn(x_0, x)
 
 
-if __name__ == "__main__":
+def main():
     # what need to take care about is the length of the time. It should always be consisted with n_mels
 
     print("Initializing logger...")
@@ -85,6 +85,7 @@ if __name__ == "__main__":
 
     iteration = 0
 
+    import numpy as np
     for epoch in range(1, params.n_epochs_denoise + 1):
         model.train()
         with tqdm(

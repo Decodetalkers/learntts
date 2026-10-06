@@ -1,5 +1,5 @@
 import torch
-from utils import fix_len_compatibility
+from .utils import fix_len_compatibility
 
 device = torch.device("cuda")
 seed = 37

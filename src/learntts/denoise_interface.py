@@ -1,10 +1,10 @@
-import params
+import learntts.params as params
 import torch
 import argparse
 import torchaudio
 from speechbrain.inference.vocoders import HIFIGAN
 from speechbrain.lobes.models.FastSpeech2 import mel_spectrogram
-from denoise import Denoise
+from .denoise import Denoise
 from typing import Tuple
 
 
@@ -50,11 +50,10 @@ class Diffusion:
 
 # Load a pretrained HIFIGAN Vocoder
 hifi_gan = HIFIGAN.from_hparams(
-    source="speechbrain/tts-hifigan-ljspeech",
-    savedir="pretrained_models/tts-hifigan-ljspeech",
+    source="speechbrain/tts-hifigan-libritts-16kHz",
+    savedir="pretrained_models/tts-hifigan-libritts-16kHz",
     run_opts={"device": "cuda:0"},
 )
-
 
 def dynamic_range_compression(
     x: torch.Tensor, C: int = 1, clip_val: float = 1e-5
@@ -63,7 +62,7 @@ def dynamic_range_compression(
     return torch.log(torch.clamp(x, min=clip_val) * C)
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-c",
@@ -111,4 +110,4 @@ if __name__ == "__main__":
     waveforms = hifi_gan.decode_batch(spectrogram)
 
     # Save the reconstructed audio as a waveform
-    torchaudio.save("waveform_reconstructed.wav", waveforms.squeeze(1).cpu(), 22050)
+    torchaudio.save("waveform_reconstructed.wav", waveforms.squeeze(1).cpu(), 16000)

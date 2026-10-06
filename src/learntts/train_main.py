@@ -3,12 +3,12 @@ from tqdm.asyncio import tqdm
 from torch.utils.data import DataLoader
 from typing import List, Tuple
 import torch
-from unet import Unet
-import params
-from utils import EMO_FEATURES
-from dataset import EmoBatchCollate, EmoBatchCollate, EmoDataset, EmoDB
-from classification import EmoClassification
-from diffusion import Diffusion
+from learntts.unet import Unet
+import learntts.params as params
+from learntts.utils import EMO_FEATURES
+from learntts.dataset import EmoBatchCollate, EmoBatchCollate, EmoDataset, EmoDB
+from learntts.classification import EmoClassification
+from learntts.diffusion import Diffusion
 import argparse
 
 save_model = "emo_classify_01.pt"
@@ -66,7 +66,7 @@ def compute_accuracy(model: EmoClassify, data_loader: DataLoader) -> float:
     return correct_pred.float().item() / num_examples * 100
 
 
-if __name__ == "__main__":
+def main():
     # what need to take care about is the length of the time. It should always be consisted with n_mels
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -113,7 +113,6 @@ if __name__ == "__main__":
 
     iteration = 0
     lossfn = torch.nn.CrossEntropyLoss()
-    softmax = torch.nn.Softmax(dim=1)
 
     for epoch in range(1, params.n_epochs + 1):
         model.train()

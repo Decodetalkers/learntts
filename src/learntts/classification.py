@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 from typing import Tuple
-from denoise import Denoise
-from attention import SelfAttention
+from .denoise import Denoise
+from .attention import SelfAttention
 
 
 # [batch, channel, mels, time]

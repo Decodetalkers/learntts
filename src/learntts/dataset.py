@@ -2,11 +2,12 @@ import torch
 import pandas as pd
 from pathlib import Path
 import torchaudio
-from utils import mel_spectrogram, EMO_FEATURES
+from .utils import mel_spectrogram, EMO_FEATURES
 from typing import Tuple, List
+import os
 
 # TODO: tran dataset and valid dataset
-_THIS_DIR = Path(__file__).parent.resolve()
+_THIS_DIR = Path(os.getcwd())
 _DATA_DIR = _THIS_DIR / "EmoSpeech-0020"
 EmoDB = csv = pd.read_csv("./EmoSpeech-0020/0020.txt", sep="\t", header=None)
 
@@ -31,7 +32,7 @@ class EmoDataset(torch.utils.data.Dataset):
         data: pd.DataFrame,
         n_fft: int = 1024,
         n_mels: int = 160,
-        sample_rate: int = 22050,
+        sample_rate: int = 16000,
         hop_length: int = 256,
         win_length: int = 1024,
         f_min: float = 0.0,
