@@ -47,10 +47,10 @@ class EmoClassification(torch.nn.Module):
         return x
 
 
-if __name__ == "__main__":
-    x = torch.randint(0, 100, (3, 80, 224))
+def main():
+    x = torch.randn(10, 160, 256)
     model: EmoClassification = EmoClassification(
-        in_channels=80, out_channels=4, n_mels=160
+        in_channels=160, out_channels=5, n_mels=160
     )
     y = model(x.float())
     print(y.shape)

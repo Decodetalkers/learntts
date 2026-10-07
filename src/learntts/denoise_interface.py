@@ -55,6 +55,7 @@ hifi_gan = HIFIGAN.from_hparams(
     run_opts={"device": "cuda:0"},
 )
 
+
 def dynamic_range_compression(
     x: torch.Tensor, C: int = 1, clip_val: float = 1e-5
 ) -> torch.Tensor:

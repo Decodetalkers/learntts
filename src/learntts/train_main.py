@@ -49,14 +49,14 @@ class EmoClassify(torch.nn.Module):
         # t_w = 1.0 - t
         # t_w = -torch.log(t_w**6) + 1.0
         # x_t = x_t * t_w[:, None]
-        loss = self.softmax(x_t / self.tau)
-        return loss
+        label = self.softmax(x_t / self.tau)
+        return label
 
 
 @torch.no_grad()
 def compute_accuracy(model: EmoClassify, data_loader: DataLoader) -> float:
     correct_pred, num_examples = torch.tensor(0, dtype=torch.int64).to(params.device), 0
-    for emo, mel in data_loader:
+    for emo, mel, _yin, _hubert in data_loader:
         predict = model(mel.to(params.device))
         predict_labels = predict.argmax(dim=1)
         emo_labels = emo.to(params.device).argmax(dim=1)
@@ -117,10 +117,10 @@ def main():
     for epoch in range(1, params.n_epochs + 1):
         model.train()
         with tqdm(train_loader, total=len(train) // params.batch_size2) as progress_bar:
-            for batch_idx, (emo, mel) in enumerate(progress_bar):
+            for batch_idx, (emo, mel, _yin, _hubert) in enumerate(progress_bar):
                 model.zero_grad()
                 predict = model.train_label(mel.to(params.device))
-                loss = lossfn(predict, emo.argmax(dim=1).to(params.device))
+                loss = lossfn(predict, emo.float().to(params.device))
                 loss.backward()
 
                 loss_collect.append(loss.item())

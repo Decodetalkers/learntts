@@ -2,7 +2,7 @@ import torch
 import pandas as pd
 from pathlib import Path
 import torchaudio
-from .utils import mel_spectrogram, EMO_FEATURES
+from .utils import mel_spectrogram, EMO_FEATURES, yin, hubert_features, HUBEDRT_FEATURES
 from typing import Tuple, List
 import os
 
@@ -63,7 +63,7 @@ class EmoDataset(torch.utils.data.Dataset):
     def __len__(self) -> int:
         return self.emodb.shape[0]
 
-    def get_mel(self, file: str | Path) -> torch.Tensor:
+    def get_audio_infos(self, file: str | Path) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         audio, sr = torchaudio.load(file)
         if sr != self.sample_rate:
             resample = torchaudio.transforms.Resample(sr, self.sample_rate)
@@ -78,13 +78,15 @@ class EmoDataset(torch.utils.data.Dataset):
             self.f_min,
             self.f_max,
         )
-        return mel
+        y = yin(audio, self.sample_rate,self.hop_length, self.win_length, self.f_min, self.f_max)
+        hubert = hubert_features(audio)
+        return mel, y, hubert
 
-    def __getitem__(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
+    def __getitem__(self, index: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         wav_file: str = self.emodb[0][index]
         emo: str = self.emodb[2][index]
         emo_file = _DATA_DIR / emo / f"{wav_file}.wav"
-        mel_data = self.get_mel(emo_file)
+        mel_data, yin, hubert = self.get_audio_infos(emo_file)
         emo_data: torch.Tensor
         match emo:
             case "Surprise":
@@ -97,7 +99,7 @@ class EmoDataset(torch.utils.data.Dataset):
                 emo_data = torch.tensor([0, 0, 0, 0, 1])
             case _:
                 emo_data = torch.tensor([1, 0, 0, 0, 0])
-        return emo_data, mel_data
+        return emo_data, mel_data, yin, hubert
 
 
 class EmoBatchCollate(object):
@@ -108,8 +110,8 @@ class EmoBatchCollate(object):
         super().__init__()
 
     def __call__(
-        self, batch: List[Tuple[torch.Tensor, torch.Tensor]]
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        self, batch: List[Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]]
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         batch_len = len(batch)
         mel_max_len = max(data[1].shape[-1] for data in batch)
 
@@ -122,15 +124,26 @@ class EmoBatchCollate(object):
         mel_data = torch.zeros(
             (batch_len, self.n_mels, mel_max_len), dtype=torch.float32
         )
+        hubert_data = torch.zeros((batch_len, mel_max_len, HUBEDRT_FEATURES), dtype=torch.float)
+        yin_data = torch.zeros((batch_len, mel_max_len), dtype=torch.float64)
 
         for i, item in enumerate(batch):
-            emo, mel = item
+            emo, mel, yin, hubert = item
             emo_data[i] = emo
             mel_data[i, :, : mel.shape[-1]] = mel
-        return emo_data, mel_data
+            if yin.shape[-1] > mel_max_len:
+                yin_data[i, :] = yin[:mel_max_len]
+            else:
+                yin_data[i, : yin.shape[-1]] = yin
+            if hubert.shape[0] > mel_max_len:
+                hubert_data[i, :] = hubert[:mel_max_len]
+
+            else:
+                hubert_data[i, :hubert.shape[0]] = hubert
+        return emo_data, mel_data, yin_data, hubert_data
 
 
-if __name__ == "__main__":
+def main():
     dataset = EmoDataset(EmoDB, n_fft=1024, n_mels=80)
     from torch.utils.data import DataLoader
 
@@ -143,10 +156,12 @@ if __name__ == "__main__":
 
     count = 0
 
-    for emo_data, mel_data in loader:
+    for emo_data, mel_data, yin, hubert in loader:
         print(emo_data)
         print(mel_data.shape)
         print(emo_data.argmax(dim=1))
+        print(yin)
+        print(hubert)
         count += 1
         if count >= 3:
             break

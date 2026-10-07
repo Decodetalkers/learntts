@@ -81,17 +81,20 @@ def main():
 
     loss_collect: List[float] = []
 
-    optimizer = torch.optim.Adam(params=model.parameters(), lr=params.learning_rate_denoise)
+    optimizer = torch.optim.Adam(
+        params=model.parameters(), lr=params.learning_rate_denoise
+    )
 
     iteration = 0
 
     import numpy as np
+
     for epoch in range(1, params.n_epochs_denoise + 1):
         model.train()
         with tqdm(
             train_loader, total=len(train) // params.denoise_batch_size
         ) as progress_bar:
-            for batch_idx, (emo, mel) in enumerate(progress_bar):
+            for batch_idx, (emo, mel, _, _) in enumerate(progress_bar):
                 model.zero_grad()
                 mel = mel.to(params.device)
                 loss = model.compute_loss(mel)
