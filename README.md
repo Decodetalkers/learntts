@@ -8,3 +8,5 @@ So I need to design a smart workflow
 First, I need a simple experiment
 
 So about the dataset, I need a new mu, it is the text data with the hubert features. But hubert data should can decide every thing.
+
+Use a dynamic window to scan the wav and generate the features, and get the same one

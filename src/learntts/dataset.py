@@ -63,7 +63,9 @@ class EmoDataset(torch.utils.data.Dataset):
     def __len__(self) -> int:
         return self.emodb.shape[0]
 
-    def get_audio_infos(self, file: str | Path) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def get_audio_infos(
+        self, file: str | Path
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         audio, sr = torchaudio.load(file)
         if sr != self.sample_rate:
             resample = torchaudio.transforms.Resample(sr, self.sample_rate)
@@ -78,11 +80,20 @@ class EmoDataset(torch.utils.data.Dataset):
             self.f_min,
             self.f_max,
         )
-        y = yin(audio, self.sample_rate,self.hop_length, self.win_length, self.f_min, self.f_max)
+        y = yin(
+            audio,
+            self.sample_rate,
+            self.hop_length,
+            self.win_length,
+            self.f_min,
+            self.f_max,
+        )
         hubert = hubert_features(audio)
         return mel, y, hubert
 
-    def __getitem__(self, index: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    def __getitem__(
+        self, index: int
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         wav_file: str = self.emodb[0][index]
         emo: str = self.emodb[2][index]
         emo_file = _DATA_DIR / emo / f"{wav_file}.wav"
@@ -124,7 +135,9 @@ class EmoBatchCollate(object):
         mel_data = torch.zeros(
             (batch_len, self.n_mels, mel_max_len), dtype=torch.float32
         )
-        hubert_data = torch.zeros((batch_len, mel_max_len, HUBEDRT_FEATURES), dtype=torch.float)
+        hubert_data = torch.zeros(
+            (batch_len, mel_max_len, HUBEDRT_FEATURES), dtype=torch.float
+        )
         yin_data = torch.zeros((batch_len, mel_max_len), dtype=torch.float64)
 
         for i, item in enumerate(batch):
@@ -139,7 +152,7 @@ class EmoBatchCollate(object):
                 hubert_data[i, :] = hubert[:mel_max_len]
 
             else:
-                hubert_data[i, :hubert.shape[0]] = hubert
+                hubert_data[i, : hubert.shape[0]] = hubert
         return emo_data, mel_data, yin_data, hubert_data
 
 

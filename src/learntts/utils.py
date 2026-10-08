@@ -8,6 +8,7 @@ EMO_FEATURES = 5
 # frames 768
 HUBEDRT_FEATURES = 768
 
+
 class HubertEncoder(nn.Module):
     def __init__(self, freeze=True):
         super().__init__()
@@ -32,10 +33,13 @@ class HubertEncoder(nn.Module):
     def predict(self, waveform: torch.Tensor) -> torch.Tensor:
         return self.forward(waveform)
 
+
 _ENCODER = HubertEncoder()
+
 
 def hubert_features(y: torch.Tensor) -> torch.Tensor:
     return _ENCODER.predict(y).squeeze()
+
 
 def yin(
     y: torch.Tensor,
